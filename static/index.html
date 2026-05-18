@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#080c14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Тренажёр слов · Алиса</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ─── Reset & Root ──────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:       #080c14;
+  --bg1:      #0e1420;
+  --bg2:      #141c2e;
+  --bg3:      #1b2540;
+  --line:     rgba(255,255,255,0.06);
+  --t1:       #f0f4ff;
+  --t2:       #8897b8;
+  --t3:       #4a5980;
+  --cyan:     #00d4ff;
+  --green:    #00e5a0;
+  --red:      #ff4d6d;
+  --yellow:   #ffd166;
+  --accent:   #4f7aff;
+  --r:        14px;
+  --r-sm:     10px;
+}
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--t1);
+  font-family: 'Manrope', sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Noise texture overlay ─────────────────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  background-size: 256px;
+  pointer-events: none; z-index: 0; opacity: .5;
+}
+
+/* ─── Layout ────────────────────────────────────────────────────────────────── */
+.app { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 0 16px 100px; }
+
+/* ─── Header ────────────────────────────────────────────────────────────────── */
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 0 28px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 28px;
+  gap: 12px;
+}
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  background: linear-gradient(135deg, #4f7aff, #00d4ff);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.logo-text h1 {
+  font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800;
+  color: var(--t1); line-height: 1.1;
+}
+.logo-text p { font-size: 12px; color: var(--t3); }
+.header-status {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--t3);
+  background: var(--bg1); border: 1px solid var(--line);
+  padding: 6px 12px; border-radius: 100px;
+  white-space: nowrap;
+}
+.status-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* ─── Nav tabs ──────────────────────────────────────────────────────────────── */
+.tabs {
+  display: flex; gap: 4px;
+  background: var(--bg1); border: 1px solid var(--line);
+  border-radius: 12px; padding: 4px; margin-bottom: 28px;
+}
+.tab {
+  flex: 1; padding: 10px 8px; border: none; border-radius: var(--r-sm);
+  background: transparent; color: var(--t3); font-family: 'Manrope', sans-serif;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: all .2s; display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.tab.active { background: var(--bg3); color: var(--t1); }
+.tab:hover:not(.active) { color: var(--t2); }
+.tab svg { flex-shrink: 0; }
+
+/* ─── Sections ──────────────────────────────────────────────────────────────── */
+.section { display: none; }
+.section.active { display: block; animation: fadeUp .3s ease; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+
+/* ─── Stats grid ────────────────────────────────────────────────────────────── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px; margin-bottom: 24px;
+}
+@media(min-width:600px){ .stats-grid { grid-template-columns: repeat(4, 1fr); } }
+
+.stat-card {
+  background: var(--bg1); border: 1px solid var(--line);
+  border-radius: var(--r); padding: 20px 18px;
+  position: relative; overflow: hidden;
+  transition: border-color .2s;
+}
+.stat-card:hover { border-color: rgba(79,122,255,0.3); }
+.stat-card::after {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at top left, rgba(79,122,255,0.05), transparent 70%);
+  pointer-events: none;
+}
+.stat-label { font-size: 11px; color: var(--t3); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
+.stat-value {
+  font-family: 'Syne', sans-serif; font-size: 32px; font-weight: 800;
+  line-height: 1; margin-bottom: 4px;
+}
+.stat-value.cyan  { color: var(--cyan); }
+.stat-value.green { color: var(--green); }
+.stat-value.red   { color: var(--red); }
+.stat-value.yellow{ color: var(--yellow); }
+.stat-sub { font-size: 12px; color: var(--t3); }
+
+/* ─── Section title ─────────────────────────────────────────────────────────── */
+.section-title {
+  font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700;
+  color: var(--t2); text-transform: uppercase; letter-spacing: .12em;
+  margin-bottom: 16px; display: flex; align-items: center; gap: 10px;
+}
+.section-title::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
+/* ─── Hard words ────────────────────────────────────────────────────────────── */
+.hard-list { display: flex; flex-direction: column; gap: 8px; }
+.hard-item {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--bg1); border: 1px solid var(--line);
+  border-radius: var(--r-sm); padding: 14px 16px;
+}
+.hard-rank {
+  font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700;
+  color: var(--t3); width: 20px; text-align: center; flex-shrink: 0;
+}
+.hard-words-col { flex: 1; min-width: 0; }
+.hard-en { font-weight: 600; font-size: 15px; color: var(--t1); }
+.hard-ru { font-size: 13px; color: var(--t3); }
+.hard-bar-wrap { width: 80px; flex-shrink: 0; }
+.hard-bar-bg { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+.hard-bar-fill { height: 100%; background: var(--red); border-radius: 2px; transition: width .4s ease; }
+.hard-bar-label { font-size: 11px; color: var(--t3); margin-top: 4px; text-align: right; }
+
+/* ─── Words section ─────────────────────────────────────────────────────────── */
+.words-toolbar {
+  display: flex; gap: 10px; margin-bottom: 16px;
+  flex-wrap: wrap; align-items: center;
+}
+.search-wrap { flex: 1; min-width: 0; position: relative; }
+.search-wrap svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--t3); pointer-events: none; }
+#searchInput {
+  width: 100%; background: var(--bg1); border: 1px solid var(--line);
+  border-radius: var(--r-sm); padding: 10px 14px 10px 38px;
+  color: var(--t1); font-family: 'Manrope', sans-serif; font-size: 14px;
+  outline: none; transition: border-color .2s;
+}
+#searchInput:focus { border-color: var(--accent); }
+#searchInput::placeholder { color: var(--t3); }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 10px 16px; border-radius: var(--r-sm); border: none;
+  font-family: 'Manrope', sans-serif; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all .18s; white-space: nowrap;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #3d67ff; transform: translateY(-1px); }
+.btn-ghost { background: var(--bg1); border: 1px solid var(--line); color: var(--t2); }
+.btn-ghost:hover { border-color: var(--t3); color: var(--t1); }
+.btn-danger { background: rgba(255,77,109,0.12); border: 1px solid rgba(255,77,109,0.2); color: var(--red); }
+.btn-danger:hover { background: rgba(255,77,109,0.2); }
+.btn-sm { padding: 6px 10px; font-size: 12px; }
+
+/* ─── Word list ─────────────────────────────────────────────────────────────── */
+.words-count { font-size: 13px; color: var(--t3); margin-bottom: 12px; }
+
+.word-list { display: flex; flex-direction: column; gap: 8px; }
+.word-item {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg1); border: 1px solid var(--line);
+  border-radius: var(--r-sm); padding: 12px 16px;
+  transition: border-color .18s;
+}
+.word-item:hover { border-color: rgba(79,122,255,0.25); }
+.word-item.hard-word { border-left: 3px solid var(--red); }
+.word-pair { flex: 1; min-width: 0; }
+.word-en { font-weight: 600; font-size: 15px; }
+.word-ru { font-size: 13px; color: var(--t3); margin-top: 1px; }
+.word-badge {
+  font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 100px;
+  letter-spacing: .06em; text-transform: uppercase; flex-shrink: 0;
+}
+.badge-hard { background: rgba(255,77,109,0.12); color: var(--red); border: 1px solid rgba(255,77,109,0.2); }
+.badge-ok   { background: rgba(0,229,160,0.08); color: var(--green); border: 1px solid rgba(0,229,160,0.15); }
+.word-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* ─── Add word form ─────────────────────────────────────────────────────────── */
+.add-card {
+  background: var(--bg1); border: 1px solid var(--line);
+  border-radius: var(--r); padding: 24px; margin-bottom: 24px;
+}
+.add-card h3 { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+.form-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.form-group { flex: 1; min-width: 130px; }
+.form-group label { font-size: 11px; color: var(--t3); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; display: block; margin-bottom: 6px; }
+.form-group input {
+  width: 100%; background: var(--bg2); border: 1px solid var(--line);
+  border-radius: var(--r-sm); padding: 10px 14px;
+  color: var(--t1); font-family: 'Manrope', sans-serif; font-size: 14px;
+  outline: none; transition: border-color .2s;
+}
+.form-group input:focus { border-color: var(--accent); }
+.form-group input::placeholder { color: var(--t3); }
+
+/* ─── Import section ────────────────────────────────────────────────────────── */
+.import-card {
+  background: var(--bg1); border: 1px dashed var(--line);
+  border-radius: var(--r); padding: 24px; margin-bottom: 24px;
+  text-align: center;
+}
+.import-card h3 { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+.import-card p { font-size: 13px; color: var(--t3); margin-bottom: 16px; }
+#csvInput { display: none; }
+.import-hint {
+  font-size: 12px; color: var(--t3); margin-top: 12px;
+  font-family: 'Courier New', monospace;
+  background: var(--bg); border-radius: 6px; padding: 8px 12px; display: inline-block;
+}
+
+/* ─── Modal ─────────────────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.7);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100; padding: 16px; opacity: 0; pointer-events: none;
+  transition: opacity .2s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--bg1); border: 1px solid var(--line);
+  border-radius: var(--r); padding: 28px;
+  width: 100%; max-width: 420px;
+  transform: translateY(12px); transition: transform .2s;
+}
+.modal-overlay.open .modal { transform: none; }
+.modal h3 { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+.modal-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+
+/* ─── Toast ─────────────────────────────────────────────────────────────────── */
+.toast-wrap { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 200; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+.toast {
+  background: var(--bg2); border: 1px solid var(--line);
+  border-radius: 100px; padding: 10px 20px;
+  font-size: 13px; font-weight: 600; color: var(--t1);
+  box-shadow: 0 8px 32px rgba(0,0,0,.4);
+  animation: toast-in .25s ease, toast-out .25s ease 2.5s forwards;
+  pointer-events: none;
+}
+.toast.ok  { border-color: rgba(0,229,160,.3); color: var(--green); }
+.toast.err { border-color: rgba(255,77,109,.3); color: var(--red); }
+@keyframes toast-in  { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+@keyframes toast-out { to{opacity:0;transform:translateY(8px)} }
+
+/* ─── Bottom nav (mobile) ────────────────────────────────────────────────────── */
+@media(max-width:599px){
+  .tabs { display: none; }
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--bg1); border-top: 1px solid var(--line);
+    display: flex; padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+    z-index: 50;
+  }
+  .bnav-btn {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    background: none; border: none; color: var(--t3); cursor: pointer;
+    font-family: 'Manrope', sans-serif; font-size: 10px; font-weight: 600;
+    padding: 6px 0; transition: color .18s;
+  }
+  .bnav-btn.active { color: var(--accent); }
+  .bnav-btn svg { flex-shrink: 0; }
+  .app { padding-bottom: 90px; }
+}
+@media(min-width:600px){ .bottom-nav { display: none; } }
+
+/* ─── Empty state ────────────────────────────────────────────────────────────── */
+.empty { text-align: center; padding: 48px 24px; color: var(--t3); }
+.empty svg { opacity: .3; margin-bottom: 16px; }
+.empty p { font-size: 14px; }
+
+/* ─── Loading ────────────────────────────────────────────────────────────────── */
+.loading { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 40px; color: var(--t3); font-size: 14px; }
+.spinner { width: 20px; height: 20px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+
+/* ─── Accuracy bar ───────────────────────────────────────────────────────────── */
+.acc-bar-wrap { margin-bottom: 24px; }
+.acc-bar-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.acc-bar-label { font-size: 13px; color: var(--t2); }
+.acc-bar-pct { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; color: var(--green); }
+.acc-bar-bg { height: 8px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
+.acc-bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--cyan)); transition: width .6s ease; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🎙</div>
+      <div class="logo-text">
+        <h1>Тренажёр слов</h1>
+        <p>Навык Яндекс Алисы</p>
+      </div>
+    </div>
+    <div class="header-status">
+      <div class="status-dot"></div>
+      <span id="statusText">Загрузка...</span>
+    </div>
+  </header>
+
+  <!-- Desktop tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="showSection('dashboard')" id="tab-dashboard">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Обзор
+    </button>
+    <button class="tab" onclick="showSection('words')" id="tab-words">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      Слова
+    </button>
+    <button class="tab" onclick="showSection('import')" id="tab-import">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Импорт
+    </button>
+  </div>
+
+  <!-- ─── DASHBOARD SECTION ────────────────────────────────────────────────── -->
+  <div class="section active" id="section-dashboard">
+
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-card"><div class="stat-label">Всего слов</div><div class="stat-value cyan" id="totalWords">—</div><div class="stat-sub">в базе</div></div>
+      <div class="stat-card"><div class="stat-label">Правильно</div><div class="stat-value green" id="totalCorrect">—</div><div class="stat-sub">ответов</div></div>
+      <div class="stat-card"><div class="stat-label">Ошибки</div><div class="stat-value red" id="totalIncorrect">—</div><div class="stat-sub">ответов</div></div>
+      <div class="stat-card"><div class="stat-label">Сессий</div><div class="stat-value yellow" id="totalSessions">—</div><div class="stat-sub">тренировок</div></div>
+    </div>
+
+    <div class="acc-bar-wrap">
+      <div class="acc-bar-row">
+        <span class="acc-bar-label">Общая точность</span>
+        <span class="acc-bar-pct" id="accPct">—%</span>
+      </div>
+      <div class="acc-bar-bg"><div class="acc-bar-fill" id="accBar" style="width:0%"></div></div>
+    </div>
+
+    <div class="section-title">Сложные слова</div>
+
+    <div id="hardListWrap">
+      <div class="loading"><div class="spinner"></div> Загрузка...</div>
+    </div>
+
+    <div style="margin-top:28px">
+      <div class="section-title">Как запустить тренировку</div>
+      <div style="background:var(--bg1);border:1px solid var(--line);border-radius:var(--r);padding:20px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <div style="background:var(--bg3);border-radius:8px;padding:6px 10px;font-size:13px;color:var(--cyan);font-weight:600;white-space:nowrap">1</div>
+          <div><div style="font-weight:600;margin-bottom:2px">Установите напоминание</div><div style="font-size:13px;color:var(--t3)">«Алиса, напомни каждый час открыть тренажёр слов»</div></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <div style="background:var(--bg3);border-radius:8px;padding:6px 10px;font-size:13px;color:var(--cyan);font-weight:600;white-space:nowrap">2</div>
+          <div><div style="font-weight:600;margin-bottom:2px">Запустите навык</div><div style="font-size:13px;color:var(--t3)">«Алиса, открой тренажёр слов»</div></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <div style="background:var(--bg3);border-radius:8px;padding:6px 10px;font-size:13px;color:var(--cyan);font-weight:600;white-space:nowrap">3</div>
+          <div><div style="font-weight:600;margin-bottom:2px">Скажите «тренировка»</div><div style="font-size:13px;color:var(--t3)">Алиса даст 10 слов. Сложные попадут в список выше.</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ─── WORDS SECTION ────────────────────────────────────────────────────── -->
+  <div class="section" id="section-words">
+
+    <div class="add-card">
+      <h3>➕ Добавить слово</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>English</label>
+          <input type="text" id="newEn" placeholder="freedom" autocomplete="off" autocapitalize="none">
+        </div>
+        <div class="form-group">
+          <label>Русский</label>
+          <input type="text" id="newRu" placeholder="свобода" autocomplete="off">
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          <button class="btn btn-primary" onclick="addWord()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Добавить
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="words-toolbar">
+      <div class="search-wrap">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="searchInput" placeholder="Поиск слов..." oninput="filterWords()">
+      </div>
+      <button class="btn btn-ghost" onclick="filterWords('hard')" id="filterHardBtn">
+        🔴 Сложные
+      </button>
+    </div>
+
+    <div class="words-count" id="wordsCount"></div>
+    <div class="word-list" id="wordList">
+      <div class="loading"><div class="spinner"></div> Загрузка слов...</div>
+    </div>
+
+  </div>
+
+  <!-- ─── IMPORT SECTION ───────────────────────────────────────────────────── -->
+  <div class="section" id="section-import">
+
+    <div class="import-card">
+      <h3>📄 Импорт из CSV</h3>
+      <p>Загрузите файл со словами. Формат: одно слово на строку.</p>
+      <button class="btn btn-primary" onclick="document.getElementById('csvInput').click()">
+        Выбрать файл CSV
+      </button>
+      <input type="file" id="csvInput" accept=".csv,.txt" onchange="importCSV(event)">
+      <div class="import-hint">freedom,свобода<br>apple,яблоко</div>
+    </div>
+
+    <div class="add-card">
+      <h3>📝 Вставить список текстом</h3>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>Список слов (каждая строка: английское,русское)</label>
+        <textarea id="bulkText"
+          style="width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:var(--r-sm);padding:12px 14px;color:var(--t1);font-family:'Courier New',monospace;font-size:13px;resize:vertical;min-height:140px;outline:none;line-height:1.6"
+          placeholder="freedom,свобода&#10;apple,яблоко&#10;beautiful,красивый"></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="importBulk()">Импортировать</button>
+    </div>
+
+    <div class="add-card" style="background:rgba(79,122,255,0.06);border-color:rgba(79,122,255,0.2)">
+      <h3 style="color:var(--accent)">🔌 Подключение к серверу</h3>
+      <p style="color:var(--t3);font-size:14px;margin-bottom:14px">Этот дашборд работает с вашим Flask-сервером на Railway. Если вы открываете файл локально — задайте адрес сервера:</p>
+      <div class="form-row">
+        <div class="form-group">
+          <label>URL сервера</label>
+          <input type="text" id="serverUrl" placeholder="https://alice-trainer.up.railway.app" oninput="saveServerUrl()">
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--t3);margin-top:10px">Если дашборд хостится на том же сервере — оставьте пустым (используется относительный путь).</div>
+    </div>
+
+  </div>
+
+</div><!-- /app -->
+
+<!-- Bottom nav (mobile) -->
+<nav class="bottom-nav">
+  <button class="bnav-btn active" id="bnav-dashboard" onclick="showSection('dashboard')">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+    Обзор
+  </button>
+  <button class="bnav-btn" id="bnav-words" onclick="showSection('words')">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+    Слова
+  </button>
+  <button class="bnav-btn" id="bnav-import" onclick="showSection('import')">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    Импорт
+  </button>
+</nav>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h3>Редактировать слово</h3>
+    <input type="hidden" id="editId">
+    <div class="form-group" style="margin-bottom:12px">
+      <label>English</label>
+      <input type="text" id="editEn" autocapitalize="none">
+    </div>
+    <div class="form-group">
+      <label>Русский</label>
+      <input type="text" id="editRu">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Отмена</button>
+      <button class="btn btn-primary" onclick="saveEdit()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+// ─── Config ──────────────────────────────────────────────────────────────────
+let API = '';
+let allWords = [];
+let filterMode = 'all';
+
+function getApi() {
+  const saved = localStorage.getItem('serverUrl');
+  return saved || '';
+}
+
+function saveServerUrl() {
+  const url = document.getElementById('serverUrl').value.trim().replace(/\/$/, '');
+  localStorage.setItem('serverUrl', url);
+  toast('Адрес сохранён', 'ok');
+  loadAll();
+}
+
+// ─── Nav ─────────────────────────────────────────────────────────────────────
+function showSection(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.bnav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('section-' + name).classList.add('active');
+  const dt = document.getElementById('tab-' + name);
+  if (dt) dt.classList.add('active');
+  const mn = document.getElementById('bnav-' + name);
+  if (mn) mn.classList.add('active');
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+function toast(msg, type = '') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.getElementById('toastWrap').appendChild(el);
+  setTimeout(() => el.remove(), 2800);
+}
+
+// ─── API helpers ──────────────────────────────────────────────────────────────
+async function apiFetch(path, opts = {}) {
+  const base = getApi();
+  const url = base + path;
+  const res = await fetch(url, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+// ─── Load all ─────────────────────────────────────────────────────────────────
+async function loadAll() {
+  try {
+    const [words, stats] = await Promise.all([
+      apiFetch('/api/words'),
+      apiFetch('/api/stats'),
+    ]);
+    allWords = words;
+    renderStats(stats);
+    renderHardList(stats.hard_words || []);
+    renderWordList();
+    document.getElementById('statusText').textContent = words.length + ' слов';
+  } catch(e) {
+    document.getElementById('statusText').textContent = 'Нет соединения';
+    renderOfflineDemo();
+  }
+}
+
+// ─── Stats ────────────────────────────────────────────────────────────────────
+function renderStats(s) {
+  document.getElementById('totalWords').textContent = s.total_words ?? '—';
+  document.getElementById('totalCorrect').textContent = s.total_correct ?? '—';
+  document.getElementById('totalIncorrect').textContent = s.total_incorrect ?? '—';
+  document.getElementById('totalSessions').textContent = s.total_sessions ?? '—';
+  const pct = s.accuracy ?? 0;
+  document.getElementById('accPct').textContent = pct + '%';
+  document.getElementById('accBar').style.width = pct + '%';
+}
+
+// ─── Hard words ───────────────────────────────────────────────────────────────
+function renderHardList(hardWords) {
+  const wrap = document.getElementById('hardListWrap');
+  if (!hardWords.length) {
+    wrap.innerHTML = '<div class="empty"><p>Сложных слов пока нет 🎉<br>Пройдите тренировку с Алисой!</p></div>';
+    return;
+  }
+  const maxCount = hardWords[0]?.count || 1;
+  wrap.innerHTML = '<div class="hard-list">' +
+    hardWords.map((item, i) => {
+      const w = item.word;
+      const pct = Math.round((item.count / maxCount) * 100);
+      return `<div class="hard-item">
+        <div class="hard-rank">${i+1}</div>
+        <div class="hard-words-col">
+          <div class="hard-en">${esc(w.en)}</div>
+          <div class="hard-ru">${esc(w.ru)}</div>
+        </div>
+        <div class="hard-bar-wrap">
+          <div class="hard-bar-bg"><div class="hard-bar-fill" style="width:${pct}%"></div></div>
+          <div class="hard-bar-label">${item.count} ош.</div>
+        </div>
+      </div>`;
+    }).join('') + '</div>';
+}
+
+// ─── Word list ─────────────────────────────────────────────────────────────────
+function filterWords(mode) {
+  if (mode === 'hard') {
+    filterMode = filterMode === 'hard' ? 'all' : 'hard';
+  } else {
+    filterMode = 'all';
+  }
+  const btn = document.getElementById('filterHardBtn');
+  btn.style.borderColor = filterMode === 'hard' ? 'rgba(255,77,109,.5)' : '';
+  btn.style.color = filterMode === 'hard' ? 'var(--red)' : '';
+  renderWordList();
+}
+
+function renderWordList() {
+  const query = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+  let words = [...allWords];
+
+  if (filterMode === 'hard') words = words.filter(w => w.is_hard);
+  if (query) words = words.filter(w =>
+    w.en.toLowerCase().includes(query) || w.ru.toLowerCase().includes(query)
+  );
+
+  document.getElementById('wordsCount').textContent = words.length + ' слов' + (query||filterMode==='hard'?' (фильтр)':'');
+
+  if (!words.length) {
+    document.getElementById('wordList').innerHTML =
+      '<div class="empty"><p>Ничего не найдено</p></div>';
+    return;
+  }
+
+  document.getElementById('wordList').innerHTML = words.map(w => `
+    <div class="word-item ${w.is_hard ? 'hard-word' : ''}" id="wi-${w.id}">
+      <div class="word-pair">
+        <div class="word-en">${esc(w.en)}</div>
+        <div class="word-ru">${esc(w.ru)}</div>
+      </div>
+      ${w.is_hard
+        ? '<span class="word-badge badge-hard">Сложное</span>'
+        : '<span class="word-badge badge-ok">Ок</span>'}
+      <div class="word-actions">
+        <button class="btn btn-ghost btn-sm" onclick='openEdit(${JSON.stringify(w)})'>✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteWord(${w.id})">🗑</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ─── Add word ─────────────────────────────────────────────────────────────────
+async function addWord() {
+  const en = document.getElementById('newEn').value.trim();
+  const ru = document.getElementById('newRu').value.trim();
+  if (!en || !ru) { toast('Заполните оба поля', 'err'); return; }
+  try {
+    const w = await apiFetch('/api/words', {
+      method: 'POST', body: JSON.stringify({ en, ru }),
+    });
+    allWords.unshift(w);
+    renderWordList();
+    document.getElementById('newEn').value = '';
+    document.getElementById('newRu').value = '';
+    toast('✅ Слово добавлено', 'ok');
+    document.getElementById('totalWords').textContent = allWords.length;
+    document.getElementById('statusText').textContent = allWords.length + ' слов';
+  } catch(e) { toast('Ошибка: ' + e.message, 'err'); }
+}
+
+// ─── Delete word ──────────────────────────────────────────────────────────────
+async function deleteWord(id) {
+  if (!confirm('Удалить слово?')) return;
+  try {
+    await apiFetch('/api/words/' + id, { method: 'DELETE' });
+    allWords = allWords.filter(w => w.id !== id);
+    renderWordList();
+    toast('Слово удалено', '');
+    document.getElementById('totalWords').textContent = allWords.length;
+  } catch(e) { toast('Ошибка', 'err'); }
+}
+
+// ─── Edit modal ───────────────────────────────────────────────────────────────
+function openEdit(w) {
+  document.getElementById('editId').value = w.id;
+  document.getElementById('editEn').value = w.en;
+  document.getElementById('editRu').value = w.ru;
+  document.getElementById('editModal').classList.add('open');
+}
+function closeModal() { document.getElementById('editModal').classList.remove('open'); }
+
+async function saveEdit() {
+  const id = document.getElementById('editId').value;
+  const en = document.getElementById('editEn').value.trim();
+  const ru = document.getElementById('editRu').value.trim();
+  if (!en || !ru) { toast('Заполните оба поля', 'err'); return; }
+  try {
+    await apiFetch('/api/words/' + id, { method: 'PUT', body: JSON.stringify({ en, ru }) });
+    const idx = allWords.findIndex(w => w.id == id);
+    if (idx !== -1) { allWords[idx].en = en; allWords[idx].ru = ru; }
+    renderWordList();
+    closeModal();
+    toast('✅ Сохранено', 'ok');
+  } catch(e) { toast('Ошибка', 'err'); }
+}
+
+// ─── Import CSV ───────────────────────────────────────────────────────────────
+function importCSV(evt) {
+  const file = evt.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('bulkText').value = e.target.result;
+    toast('Файл загружен, нажмите «Импортировать»', 'ok');
+  };
+  reader.readAsText(file);
+}
+
+async function importBulk() {
+  const text = document.getElementById('bulkText').value.trim();
+  if (!text) { toast('Вставьте список слов', 'err'); return; }
+
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const pairs = lines.map(l => {
+    const [en, ru] = l.split(',').map(s => s.trim());
+    return en && ru ? { en, ru } : null;
+  }).filter(Boolean);
+
+  if (!pairs.length) { toast('Неверный формат', 'err'); return; }
+
+  let added = 0, failed = 0;
+  for (const p of pairs) {
+    try {
+      const w = await apiFetch('/api/words', { method: 'POST', body: JSON.stringify(p) });
+      allWords.unshift(w);
+      added++;
+    } catch { failed++; }
+  }
+
+  renderWordList();
+  document.getElementById('bulkText').value = '';
+  toast(`✅ Добавлено: ${added}${failed ? ', ошибок: '+failed : ''}`, 'ok');
+  document.getElementById('totalWords').textContent = allWords.length;
+}
+
+// ─── Offline demo ──────────────────────────────────────────────────────────────
+function renderOfflineDemo() {
+  const demo = [
+    {id:1,en:'freedom',ru:'свобода',is_hard:false},
+    {id:2,en:'beautiful',ru:'красивый',is_hard:true},
+    {id:3,en:'experience',ru:'опыт',is_hard:false},
+    {id:4,en:'imagination',ru:'воображение',is_hard:true},
+    {id:5,en:'knowledge',ru:'знание',is_hard:false},
+  ];
+  allWords = demo;
+  renderStats({total_words:5,total_correct:24,total_incorrect:8,total_sessions:6,accuracy:75});
+  renderHardList([
+    {word:{en:'beautiful',ru:'красивый'},count:3},
+    {word:{en:'imagination',ru:'воображение'},count:2},
+  ]);
+  renderWordList();
+  toast('⚠️ Демо-режим — сервер недоступен', 'err');
+}
+
+// ─── Utils ────────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+document.getElementById('editModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('editModal')) closeModal();
+});
+
+const savedUrl = localStorage.getItem('serverUrl');
+if (savedUrl) document.getElementById('serverUrl').value = savedUrl;
+
+loadAll();
+setInterval(loadAll, 60000); // авто-обновление каждую минуту
+</script>
+</body>
+</html>
